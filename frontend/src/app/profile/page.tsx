@@ -2,51 +2,74 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserCircleIcon, BellIcon, BriefcaseIcon, CalendarIcon, KeyIcon, DocumentTextIcon, ShieldCheckIcon, QuestionMarkCircleIcon, StarIcon, Cog6ToothIcon, InboxIcon, PencilIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { useAuth } from '@/contexts/AuthContext';
+import api from '@/services/api';
+import { 
+  UserCircleIcon, 
+  BriefcaseIcon, 
+  CalendarIcon, 
+  KeyIcon, 
+  DocumentTextIcon, 
+  ShieldCheckIcon, 
+  QuestionMarkCircleIcon, 
+  StarIcon, 
+  Cog6ToothIcon, 
+  PencilIcon, 
+  ArrowLeftIcon,
+  PhoneIcon,
+  EnvelopeIcon,
+  MapPinIcon,
+  IdentificationIcon,
+  HeartIcon,
+  CameraIcon,
+  CheckIcon,
+  XMarkIcon
+} from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
 interface ProfileData {
-  avatar: string;
+  id: number;
   firstName: string;
   lastName: string;
-  role: string;
-  department: string;
-  jobRole: string;
-  phone: string;
   email: string;
-  dob: string;
-  note?: string;
-  available: boolean;
+  phone?: string;
+  dateOfBirth?: string;
+  address?: string;
+  nationalId?: string;
+  emergencyContact?: string;
+  bloodGroup?: string;
+  avatar?: string;
+  role: string;
+  department?: {
+    id: number;
+    name: string;
+    description?: string;
+  };
+  designation?: {
+    id: number;
+    name: string;
+  };
+  basicSalary: number;
+  dateJoined?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-const initialProfileData: ProfileData = {
-  avatar: 'https://randomuser.me/api/portraits/men/32.jpg', // Default avatar
-  firstName: 'Oliver',
-  lastName: 'Thompson',
-  role: 'General manager',
-  department: 'Research and Development',
-  jobRole: 'Administrative staff',
-  phone: '+1 (555) 789-0123',
-  email: 'research@companyxyz.com',
-  dob: '1986-12-12',
-  note: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-  available: true,
-};
+const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 const sidebarSections = [
-  { key: 'personal', label: 'Personal', icon: UserCircleIcon },
-  { key: 'job', label: 'Job details', icon: BriefcaseIcon },
-  { key: 'timeoff', label: 'Time Off', icon: CalendarIcon },
-  { key: 'notifications', label: 'Notifications', icon: BellIcon, badge: 3 },
-  { key: 'permissions', label: 'Permissions', icon: ShieldCheckIcon },
-  { key: 'security', label: 'Security', icon: KeyIcon },
-  { key: 'questions', label: 'Questions', icon: QuestionMarkCircleIcon },
-  { key: 'documents', label: 'Documents', icon: DocumentTextIcon },
-  { key: 'benefits', label: 'Benefits', icon: StarIcon },
-  { key: 'other', label: 'Other', icon: Cog6ToothIcon },
+  { key: 'personal', label: 'Personal Information', icon: UserCircleIcon, color: 'bg-blue-500' },
+  { key: 'job', label: 'Job Details', icon: BriefcaseIcon, color: 'bg-green-500' },
+  { key: 'contact', label: 'Contact & Emergency', icon: PhoneIcon, color: 'bg-purple-500' },
+  { key: 'security', label: 'Security', icon: KeyIcon, color: 'bg-red-500' },
+  { key: 'documents', label: 'Documents', icon: DocumentTextIcon, color: 'bg-yellow-500' },
+  { key: 'benefits', label: 'Benefits & Perks', icon: StarIcon, color: 'bg-pink-500' },
+  { key: 'settings', label: 'Settings', icon: Cog6ToothIcon, color: 'bg-gray-500' },
 ];
 
-function formatDateForInput(dateStr: string) {
+function formatDateForInput(dateStr?: string) {
+  if (!dateStr) return '';
   const d = new Date(dateStr);
   const month = ('0' + (d.getMonth() + 1)).slice(-2);
   const day = ('0' + d.getDate()).slice(-2);
@@ -54,7 +77,8 @@ function formatDateForInput(dateStr: string) {
   return `${year}-${month}-${day}`;
 }
 
-function calculateAge(dob: string) {
+function calculateAge(dob?: string) {
+  if (!dob) return null;
   const today = new Date();
   const birthDate = new Date(dob);
   let age = today.getFullYear() - birthDate.getFullYear();
@@ -65,31 +89,71 @@ function calculateAge(dob: string) {
   return age;
 }
 
-export default function AdminProfilePage() {
-  const [activeSection, setActiveSection] = useState('personal');
-  const [profile, setProfile] = useState<ProfileData>(initialProfileData);
-  const router = useRouter();
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('en-BD', { 
+    style: 'currency', 
+    currency: 'BDT',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount);
+}
 
-  // Load profile data from localStorage on mount
+export default function ProfilePage() {
+  const [activeSection, setActiveSection] = useState('personal');
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const router = useRouter();
+  const { user } = useAuth();
+
   useEffect(() => {
-    const storedProfile = localStorage.getItem('adminProfile');
-    if (storedProfile) {
-      setProfile(JSON.parse(storedProfile));
-    }
+    fetchProfile();
   }, []);
 
-  // Save profile data to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('adminProfile', JSON.stringify(profile));
-  }, [profile]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setProfile((prevProfile) => ({ ...prevProfile, [name]: value }));
+  const fetchProfile = async () => {
+    try {
+      const response = await api.get('/employees/profile');
+      setProfile(response.data as ProfileData);
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+      // Fallback to user data from auth context
+      if (user) {
+        setProfile({
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          role: user.role,
+          basicSalary: 0,
+          isActive: true
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAvailabilityToggle = () => {
-    setProfile((prevProfile) => ({ ...prevProfile, available: !prevProfile.available }));
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setProfile(prev => prev ? { ...prev, [name]: value } : null);
+  };
+
+  const handleSave = async () => {
+    if (!profile) return;
+    
+    setSaving(true);
+    try {
+      await api.put('/employees/profile', profile);
+      toast.success('Profile updated successfully!');
+      setEditMode(false);
+      fetchProfile(); // Refresh data
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      toast.error('Failed to update profile');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,161 +161,381 @@ export default function AdminProfilePage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProfile((prevProfile) => ({ ...prevProfile, avatar: reader.result as string }));
+        setProfile(prev => prev ? { ...prev, avatar: reader.result as string } : null);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSave = () => {
-    // Here you would typically send the updated profile data to your backend API
-    console.log('Saving profile data:', profile);
-    toast.success('Profile saved successfully!');
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Failed to load profile data</p>
+          <button 
+            onClick={() => router.push('/dashboard')}
+            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-2 md:px-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">My Profile</h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 py-8 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-800 mb-2">My Profile</h1>
+              <p className="text-gray-600">Manage your personal information and preferences</p>
+            </div>
+            <div className="flex items-center space-x-4">
+              {editMode ? (
+                <>
+                  <button
+                    onClick={() => setEditMode(false)}
+                    className="flex items-center px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <XMarkIcon className="h-5 w-5 mr-2" />
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="flex items-center px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    <CheckIcon className="h-5 w-5 mr-2" />
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setEditMode(true)}
+                  className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <PencilIcon className="h-5 w-5 mr-2" />
+                  Edit Profile
+                </button>
+              )}
+            </div>
+          </div>
         </div>
         
-        <div className="bg-white rounded-2xl shadow-lg flex overflow-hidden">
-          {/* Sidebar */}
-          <aside className="w-64 bg-white border-r flex flex-col py-6 px-4">
-            <nav className="flex-1 space-y-1">
-              {sidebarSections.map((section) => (
-                <button
-                  key={section.key}
-                  onClick={() => setActiveSection(section.key)}
-                  className={`w-full flex items-center px-3 py-2 rounded-lg text-left transition font-medium text-gray-700 hover:bg-blue-50 ${activeSection === section.key ? 'bg-blue-100 text-blue-700' : ''}`}
-                >
-                  <section.icon className="h-5 w-5 mr-3" />
-                  {section.label}
-                  {section.badge && (
-                    <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">{section.badge}</span>
-                  )}
-                </button>
-              ))}
-            </nav>
-          </aside>
-
-          {/* Main Content */}
-          <main className="flex-1 p-8">
-            {activeSection === 'personal' && (
-              <div className="flex flex-col md:flex-row gap-8">
-                {/* Editable Info */}
-                <div className="flex-1 bg-white rounded-xl shadow p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="text-lg font-semibold text-gray-700">Personal Information</div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">Available</span>
-                      <button
-                        onClick={handleAvailabilityToggle}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${profile.available ? 'bg-blue-600' : 'bg-gray-300'}`}
-                        role="switch"
-                        aria-checked={profile.available}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${profile.available ? 'translate-x-6' : 'translate-x-1'}`}
+        <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+          <div className="flex">
+            {/* Sidebar */}
+            <aside className="w-80 bg-gradient-to-b from-gray-50 to-gray-100 border-r border-gray-200">
+              {/* Profile Summary Card */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="text-center">
+                  <div className="relative inline-block">
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold mx-auto">
+                      {profile.avatar ? (
+                        <img
+                          src={profile.avatar}
+                          alt="Profile"
+                          className="w-24 h-24 rounded-full object-cover"
                         />
-                      </button>
+                      ) : (
+                        `${profile.firstName[0]}${profile.lastName[0]}`
+                      )}
+                    </div>
+                    {editMode && (
+                      <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors">
+                        <CameraIcon className="h-4 w-4" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleAvatarChange}
+                        />
+                      </label>
+                    )}
+                  </div>
+                  <h2 className="mt-4 text-xl font-bold text-gray-800">
+                    {profile.firstName} {profile.lastName}
+                  </h2>
+                  <p className="text-gray-600">{profile.designation?.name || 'Employee'}</p>
+                  <p className="text-sm text-gray-500">{profile.department?.name || 'No Department'}</p>
+                  <div className="mt-3 flex justify-center">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      profile.isActive 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {profile.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation */}
+              <nav className="p-4">
+                <div className="space-y-2">
+                  {sidebarSections.map((section) => (
+                    <button
+                      key={section.key}
+                      onClick={() => setActiveSection(section.key)}
+                      className={`w-full flex items-center px-4 py-3 rounded-xl text-left transition-all ${
+                        activeSection === section.key
+                          ? 'bg-blue-100 text-blue-700 shadow-md'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className={`p-2 rounded-lg ${section.color} text-white mr-3`}>
+                        <section.icon className="h-5 w-5" />
+                      </div>
+                      <span className="font-medium">{section.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </nav>
+            </aside>
+
+            {/* Main Content */}
+            <main className="flex-1 p-8">
+              {/* Personal Information */}
+              {activeSection === 'personal' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-2xl font-bold text-gray-800">Personal Information</h3>
+                    <div className="text-sm text-gray-500">
+                      Last updated: {new Date(profile.updatedAt || Date.now()).toLocaleDateString()}
                     </div>
                   </div>
-                  <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="department" className="block text-xs text-gray-500 mb-1">Department</label>
-                      <input type="text" id="department" name="department" className="w-full rounded-md border border-gray-300 bg-white px-3 py-2" value={profile.department} onChange={handleInputChange} />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">First Name</label>
+                      <input
+                        type="text"
+                        name="firstName"
+                        value={profile.firstName}
+                        onChange={handleInputChange}
+                        disabled={!editMode}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                      />
                     </div>
-                    <div>
-                      <label htmlFor="jobRole" className="block text-xs text-gray-500 mb-1">Role</label>
-                      <input type="text" id="jobRole" name="jobRole" className="w-full rounded-md border border-gray-300 bg-white px-3 py-2" value={profile.jobRole} onChange={handleInputChange} />
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                      <input
+                        type="text"
+                        name="lastName"
+                        value={profile.lastName}
+                        onChange={handleInputChange}
+                        disabled={!editMode}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                      />
                     </div>
-                    <div>
-                      <label htmlFor="firstName" className="block text-xs text-gray-500 mb-1">First Name</label>
-                      <input type="text" id="firstName" name="firstName" className="w-full rounded-md border border-gray-300 bg-white px-3 py-2" value={profile.firstName} onChange={handleInputChange} />
-                    </div>
-                    <div>
-                      <label htmlFor="lastName" className="block text-xs text-gray-500 mb-1">Last Name</label>
-                      <input type="text" id="lastName" name="lastName" className="w-full rounded-md border border-gray-300 bg-white px-3 py-2" value={profile.lastName} onChange={handleInputChange} />
-                    </div>
-                    <div>
-                      <label htmlFor="phone" className="block text-xs text-gray-500 mb-1">Phone Number</label>
-                      <input type="text" id="phone" name="phone" className="w-full rounded-md border border-gray-300 bg-white px-3 py-2" value={profile.phone} onChange={handleInputChange} />
-                    </div>
-                    <div>
-                      <label htmlFor="email" className="block text-xs text-gray-500 mb-1">Email</label>
-                      <input type="email" id="email" name="email" className="w-full rounded-md border border-gray-300 bg-white px-3 py-2" value={profile.email} onChange={handleInputChange} />
-                    </div>
-                    <div>
-                      <label htmlFor="dob" className="block text-xs text-gray-500 mb-1">Date of Birth</label>
-                      <div className="flex items-center gap-2">
-                        <CalendarIcon className="h-5 w-5 text-gray-400" />
-                        <input type="date" id="dob" name="dob" className="w-full rounded-md border border-gray-300 bg-white px-3 py-2" value={formatDateForInput(profile.dob)} onChange={handleInputChange} />
-                        <span className="text-xs text-gray-400">{calculateAge(profile.dob)} y.o</span>
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          name="dateOfBirth"
+                          value={formatDateForInput(profile.dateOfBirth)}
+                          onChange={handleInputChange}
+                          disabled={!editMode}
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                        />
+                        {profile.dateOfBirth && (
+                          <div className="absolute right-3 top-3 text-sm text-gray-500">
+                            {calculateAge(profile.dateOfBirth)} years old
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="md:col-span-2">
-                      <label htmlFor="note" className="block text-xs text-gray-500 mb-1">Note</label>
-                      <textarea id="note" name="note" className="w-full rounded-md border border-gray-300 bg-white px-3 py-2" rows={2} value={profile.note} onChange={handleInputChange} />
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">Blood Group</label>
+                      <select
+                        name="bloodGroup"
+                        value={profile.bloodGroup || ''}
+                        onChange={handleInputChange}
+                        disabled={!editMode}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                      >
+                        <option value="">Select Blood Group</option>
+                        {bloodGroups.map(group => (
+                          <option key={group} value={group}>{group}</option>
+                        ))}
+                      </select>
                     </div>
-                  </form>
-                  <div className="mt-6 flex justify-end">
-                    <button
-                      onClick={handleSave}
-                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Save
-                    </button>
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">National ID</label>
+                      <input
+                        type="text"
+                        name="nationalId"
+                        value={profile.nationalId || ''}
+                        onChange={handleInputChange}
+                        disabled={!editMode}
+                        placeholder="e.g., 1234567890123"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                      />
+                    </div>
+
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">Address</label>
+                      <textarea
+                        name="address"
+                        value={profile.address || ''}
+                        onChange={handleInputChange}
+                        disabled={!editMode}
+                        rows={3}
+                        placeholder="Enter your full address"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 resize-none"
+                      />
+                    </div>
                   </div>
                 </div>
-                {/* Profile Card */}
-                <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center md:w-80">
-                  <div className="relative group mb-4">
-                    <img
-                      src={profile.avatar}
-                      alt="Profile"
-                      className="w-28 h-28 rounded-full object-cover border-4 border-blue-100"
-                    />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      onChange={handleAvatarChange}
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                      <PencilIcon className="h-6 w-6 text-white" />
+              )}
+
+              {/* Job Details */}
+              {activeSection === 'job' && (
+                <div className="space-y-6">
+                  <h3 className="text-2xl font-bold text-gray-800">Job Details</h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-xl">
+                      <div className="flex items-center mb-4">
+                        <BriefcaseIcon className="h-8 w-8 text-blue-600 mr-3" />
+                        <h4 className="text-lg font-semibold text-gray-800">Position</h4>
+                      </div>
+                      <p className="text-2xl font-bold text-gray-800">{profile.designation?.name || 'Not Assigned'}</p>
+                      <p className="text-gray-600">{profile.department?.name || 'No Department'}</p>
+                    </div>
+
+                    <div className="bg-gradient-to-r from-green-50 to-green-100 p-6 rounded-xl">
+                      <div className="flex items-center mb-4">
+                        <StarIcon className="h-8 w-8 text-green-600 mr-3" />
+                        <h4 className="text-lg font-semibold text-gray-800">Salary</h4>
+                      </div>
+                      <p className="text-2xl font-bold text-gray-800">{formatCurrency(profile.basicSalary)}</p>
+                      <p className="text-gray-600">Basic Salary (Monthly)</p>
+                    </div>
+
+                    <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-6 rounded-xl">
+                      <div className="flex items-center mb-4">
+                        <CalendarIcon className="h-8 w-8 text-purple-600 mr-3" />
+                        <h4 className="text-lg font-semibold text-gray-800">Joining Date</h4>
+                      </div>
+                      <p className="text-2xl font-bold text-gray-800">
+                        {profile.dateJoined ? new Date(profile.dateJoined).toLocaleDateString() : 'Not Available'}
+                      </p>
+                      <p className="text-gray-600">Employment Start</p>
+                    </div>
+
+                    <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 p-6 rounded-xl">
+                      <div className="flex items-center mb-4">
+                        <ShieldCheckIcon className="h-8 w-8 text-yellow-600 mr-3" />
+                        <h4 className="text-lg font-semibold text-gray-800">Role</h4>
+                      </div>
+                      <p className="text-2xl font-bold text-gray-800 capitalize">{profile.role}</p>
+                      <p className="text-gray-600">System Role</p>
                     </div>
                   </div>
-                  <div className="text-xl font-bold text-gray-800">{profile.firstName} {profile.lastName}</div>
-                  <div className="text-sm text-gray-500 mb-2">{profile.role}</div>
-                  <div className="text-xs text-gray-500 mb-1">
-                    <span className="font-semibold">Phone Number:</span> {profile.phone}
-                  </div>
-                  <div className="text-xs text-gray-500 mb-4">
-                    <span className="font-semibold">Email:</span> {profile.email}
-                  </div>
-                  <div className="flex space-x-2 mt-2">
-                    <a href="#" className="text-gray-400 hover:text-blue-500"><svg width="18" height="18" fill="currentColor"><rect width="18" height="18" rx="4"/></svg></a>
-                    <a href="#" className="text-gray-400 hover:text-blue-500"><svg width="18" height="18" fill="currentColor"><circle cx="9" cy="9" r="8"/></svg></a>
-                    <a href="#" className="text-gray-400 hover:text-blue-500"><svg width="18" height="18" fill="currentColor"><rect width="18" height="10" y="4" rx="2"/></svg></a>
+                </div>
+              )}
+
+              {/* Contact & Emergency */}
+              {activeSection === 'contact' && (
+                <div className="space-y-6">
+                  <h3 className="text-2xl font-bold text-gray-800">Contact & Emergency Information</h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                      <div className="relative">
+                        <PhoneIcon className="h-5 w-5 text-gray-400 absolute left-3 top-3.5" />
+                        <input
+                          type="tel"
+                          name="phone"
+                          value={profile.phone || ''}
+                          onChange={handleInputChange}
+                          disabled={!editMode}
+                          placeholder="+880 1XXXXXXXXX"
+                          className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">Email Address</label>
+                      <div className="relative">
+                        <EnvelopeIcon className="h-5 w-5 text-gray-400 absolute left-3 top-3.5" />
+                        <input
+                          type="email"
+                          name="email"
+                          value={profile.email}
+                          onChange={handleInputChange}
+                          disabled={true} // Email should not be editable
+                          className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 bg-gray-50 text-gray-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">Emergency Contact</label>
+                      <div className="relative">
+                        <HeartIcon className="h-5 w-5 text-gray-400 absolute left-3 top-3.5" />
+                        <input
+                          type="text"
+                          name="emergencyContact"
+                          value={profile.emergencyContact || ''}
+                          onChange={handleInputChange}
+                          disabled={!editMode}
+                          placeholder="Emergency contact name and phone number"
+                          className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-            {/* Placeholder for other sections */}
-            {activeSection !== 'personal' && (
-              <div className="flex items-center justify-center h-96 text-gray-400 text-lg font-medium">
-                {sidebarSections.find((s) => s.key === activeSection)?.label} section coming soon...
-              </div>
-            )}
-          </main>
+              )}
+
+              {/* Placeholder sections */}
+              {['security', 'documents', 'benefits', 'settings'].includes(activeSection) && (
+                <div className="text-center py-16">
+                  <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    {(() => {
+                      const section = sidebarSections.find(s => s.key === activeSection);
+                      const IconComponent = section?.icon || QuestionMarkCircleIcon;
+                      return <IconComponent className="h-12 w-12 text-gray-400" />;
+                    })()}
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                    {sidebarSections.find(s => s.key === activeSection)?.label}
+                  </h3>
+                  <p className="text-gray-600">This section is coming soon...</p>
+                </div>
+              )}
+            </main>
+          </div>
         </div>
-        {/* Back to Dashboard Button */}
-        <div className="mt-6 flex justify-center">
+        
+        {/* Back to Dashboard */}
+        <div className="mt-8 text-center">
           <button
             onClick={() => router.push('/dashboard')}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            className="inline-flex items-center px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-md"
           >
             <ArrowLeftIcon className="h-5 w-5 mr-2" />
             Back to Dashboard

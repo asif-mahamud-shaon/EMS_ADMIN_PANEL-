@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import { attendanceApi } from '@/services/api';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 
@@ -19,55 +20,29 @@ interface AttendanceRecord {
 
 export default function Attendance() {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [downloadLoading, setDownloadLoading] = useState(false);
 
   useEffect(() => {
-    // Load attendance records from localStorage
-    const storedData = localStorage.getItem('attendanceRecords');
-    if (storedData) {
-      setAttendanceRecords(JSON.parse(storedData));
-    } else {
-      // Initialize with mock data if no data exists
-      const mockData: AttendanceRecord[] = [
-        {
-          id: '1',
-          employeeName: 'John Doe',
-          department: 'Engineering',
-          date: '2024-03-01',
-          checkIn: '09:00 AM',
-          checkOut: '06:00 PM',
-          status: 'Present',
-          workingHours: '9h',
-        },
-        {
-          id: '2',
-          employeeName: 'Jane Smith',
-          department: 'Marketing',
-          date: '2024-03-01',
-          checkIn: '09:15 AM',
-          checkOut: '06:00 PM',
-          status: 'Late',
-          workingHours: '8.75h',
-        },
-        {
-          id: '3',
-          employeeName: 'Mike Johnson',
-          department: 'Sales',
-          date: '2024-03-01',
-          checkIn: '09:00 AM',
-          checkOut: '02:00 PM',
-          status: 'Half Day',
-          workingHours: '5h',
-        },
-      ];
-      setAttendanceRecords(mockData);
-      localStorage.setItem('attendanceRecords', JSON.stringify(mockData));
-    }
+    fetchAttendanceRecords();
   }, []);
+
+  const fetchAttendanceRecords = async () => {
+    try {
+      setLoading(true);
+      const response = await attendanceApi.getAll();
+      setAttendanceRecords(response.data);
+    } catch (error) {
+      console.error('Error fetching attendance records:', error);
+      toast.error('Failed to load attendance records');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDownloadExcel = () => {
     try {
-      setLoading(true);
+      setDownloadLoading(true);
 
       // Prepare data for Excel
       const excelData = attendanceRecords.map((record) => ({
@@ -95,126 +70,170 @@ export default function Attendance() {
       console.error('Error downloading attendance records:', error);
       toast.error('Failed to download attendance records');
     } finally {
-      setLoading(false);
+      setDownloadLoading(false);
     }
   };
 
   const getStatusColor = (status: AttendanceRecord['status']) => {
     switch (status) {
       case 'Present':
-        return 'bg-green-100 text-green-800';
+        return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
       case 'Absent':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 border border-red-200';
       case 'Late':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-amber-100 text-amber-800 border border-amber-200';
       case 'Half Day':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 border border-blue-200';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 border border-gray-200';
     }
   };
 
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-8">
+          <div className="page-header">
+            <div className="flex items-center justify-between">
+              <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
+              <div className="h-12 bg-gray-200 rounded w-40 animate-pulse"></div>
+            </div>
+          </div>
+          <div className="table-container">
+            <div className="animate-pulse p-8">
+              <div className="space-y-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="h-12 bg-gray-200 rounded"></div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">Attendance Records</h1>
-          <button
-            type="button"
-            onClick={handleDownloadExcel}
-            disabled={loading}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <ArrowDownTrayIcon className="h-5 w-5 mr-2" aria-hidden="true" />
-            {loading ? 'Downloading...' : 'Download Excel'}
-          </button>
+      <div className="space-y-8">
+        {/* Header Section */}
+        <div className="page-header">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center space-x-4">
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                <CalendarIcon className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-light text-gray-800 tracking-wide">Attendance Management</h1>
+                <p className="text-gray-600 font-light mt-1">Track employee attendance and working hours</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleDownloadExcel}
+              disabled={downloadLoading}
+              className="btn-primary inline-flex items-center"
+            >
+              <ArrowDownTrayIcon className="h-5 w-5 mr-2" aria-hidden="true" />
+              {downloadLoading ? 'Downloading...' : 'Download Excel'}
+            </button>
+          </div>
         </div>
 
-        <div className="overflow-hidden rounded-lg bg-white shadow">
+        {/* Table Section */}
+        <div className="table-container overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="table-header">
                 <tr>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-8 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider"
                   >
                     Employee
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-8 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider"
                   >
                     Department
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-8 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider"
                   >
                     Date
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-8 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider"
                   >
                     Check In
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-8 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider"
                   >
                     Check Out
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-8 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider"
                   >
                     Status
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-8 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider"
                   >
                     Working Hours
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {attendanceRecords.map((record) => (
-                  <tr key={record.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {record.employeeName}
+              <tbody className="bg-white divide-y divide-gray-100">
+                {attendanceRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-8 py-16 text-center">
+                      <div className="flex flex-col items-center">
+                        <CalendarIcon className="h-12 w-12 text-gray-400 mb-4" />
+                        <p className="text-gray-500 font-light text-lg">No attendance records found</p>
+                        <p className="text-gray-400 font-light text-sm mt-1">Attendance data will appear here</p>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{record.department}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {new Date(record.date).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{record.checkIn}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{record.checkOut}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${getStatusColor(
-                          record.status
-                        )}`}
-                      >
-                        {record.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{record.workingHours}</div>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  attendanceRecords.map((record) => (
+                    <tr key={record.id} className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-25 transition-all duration-200">
+                      <td className="px-8 py-6 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900 tracking-wide">
+                          {record.employeeName}
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 whitespace-nowrap">
+                        <div className="text-sm text-gray-600 font-light">{record.department}</div>
+                      </td>
+                      <td className="px-8 py-6 whitespace-nowrap">
+                        <div className="text-sm text-gray-600 font-light">
+                          {new Date(record.date).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 whitespace-nowrap">
+                        <div className="text-sm text-gray-600 font-light">{record.checkIn}</div>
+                      </td>
+                      <td className="px-8 py-6 whitespace-nowrap">
+                        <div className="text-sm text-gray-600 font-light">{record.checkOut}</div>
+                      </td>
+                      <td className="px-8 py-6 whitespace-nowrap">
+                        <span className={`status-badge ${getStatusColor(record.status)}`}>
+                          {record.status}
+                        </span>
+                      </td>
+                      <td className="px-8 py-6 whitespace-nowrap">
+                        <div className="text-sm text-gray-600 font-light">{record.workingHours}</div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
