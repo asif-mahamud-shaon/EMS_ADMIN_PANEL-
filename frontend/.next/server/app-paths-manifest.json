@@ -1,9 +1,11 @@
 {
-  "/dashboard/page": "app/dashboard/page.js",
-  "/employees/page": "app/employees/page.js",
-  "/leaves/page": "app/leaves/page.js",
-  "/login/page": "app/login/page.js",
   "/page": "app/page.js",
+  "/login/page": "app/login/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/leaves/page": "app/leaves/page.js",
+  "/attendance/page": "app/attendance/page.js",
   "/payroll/page": "app/payroll/page.js",
-  "/designations/page": "app/designations/page.js"
+  "/departments/page": "app/departments/page.js",
+  "/designations/page": "app/designations/page.js",
+  "/employees/page": "app/employees/page.js"
 }
