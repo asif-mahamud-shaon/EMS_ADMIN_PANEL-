@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 async function createDefaultAdmin() {
   try {
     const adminExists = await prisma.user.findUnique({
-      where: { email: 'binti@hrms.com' }
+      where: { email: 'admin@hrms.com' }
     });
 
     if (adminExists) {
