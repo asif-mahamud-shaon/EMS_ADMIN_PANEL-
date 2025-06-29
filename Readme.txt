@@ -1,4 +1,4 @@
-email: binti@hrms.com
+email: admin@hrms.com
 password: admin123
 
 
