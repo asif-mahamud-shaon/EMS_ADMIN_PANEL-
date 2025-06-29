@@ -314,7 +314,7 @@ export default function Dashboard() {
 
         {/* Footer */}
         <div className="text-center text-gray-500 text-sm font-light">
-          <p>🇧🇩 Made with ❤️ for Bangladesh | Created by Binti</p>
+          <p>🇧🇩 Made with ❤️ for Bangladesh | Created by Asif</p>
         </div>
       </div>
     </DashboardLayout>
