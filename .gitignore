@@ -11,3 +11,7 @@ dist/
 # OS junk files
 .DS_Store
 Thumbs.db
+
+backend/
+*.ts
+*.env
