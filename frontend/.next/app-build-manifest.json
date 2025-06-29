@@ -21,35 +21,70 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/page.js"
     ],
-    "/leaves/page": [
+    "/employees/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/leaves/page.js"
+      "static/chunks/app/employees/page.js"
     ],
-    "/payroll/page": [
+    "/employees/new/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/payroll/page.js"
-    ],
-    "/attendance/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/attendance/page.js"
-    ],
-    "/designations/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/designations/page.js"
+      "static/chunks/app/employees/new/page.js"
     ],
     "/departments/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/departments/page.js"
     ],
-    "/employees/page": [
+    "/employees/[id]/edit/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/employees/page.js"
+      "static/chunks/app/employees/[id]/edit/page.js"
+    ],
+    "/designations/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/designations/page.js"
+    ],
+    "/designations/new/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/designations/new/page.js"
+    ],
+    "/attendance/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/attendance/page.js"
+    ],
+    "/leaves/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/leaves/page.js"
+    ],
+    "/leaves/new/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/leaves/new/page.js"
+    ],
+    "/payroll/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/payroll/page.js"
+    ],
+    "/payroll/generate/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/payroll/generate/page.js"
+    ],
+    "/profile/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/profile/page.js"
+    ],
+    "/designations/[id]/edit/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/designations/[id]/edit/page.js"
     ]
   }
 }

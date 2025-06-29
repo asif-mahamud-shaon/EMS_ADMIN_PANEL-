@@ -33,7 +33,7 @@ export default function Employees() {
       setLoading(true);
       const response = await employeesApi.getAll();
       setEmployees(response.data);
-    } catch (error) {
+      } catch (error) {
       console.error('Error fetching employees:', error);
       toast.error('Failed to load employees');
     } finally {
