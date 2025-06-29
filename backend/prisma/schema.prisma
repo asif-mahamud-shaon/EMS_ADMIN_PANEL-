@@ -1,0 +1,137 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Department {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  description  String?
+  managerId    Int?         @unique // Reference to the manager (User)
+  manager      User?        @relation("DepartmentManager", fields: [managerId], references: [id])
+  designations Designation[]
+  users        User[]       @relation("DepartmentMembers")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model Designation {
+  id           Int        @id @default(autoincrement())
+  name         String
+  description  String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  departmentId Int?
+  users        User[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([name, departmentId])
+}
+
+model User {
+  id            Int          @id @default(autoincrement())
+  firstName     String       // Split name into first and last
+  lastName      String
+  email         String       @unique
+  passwordHash  String
+  role          Role         @default(employee)
+  department    Department?  @relation("DepartmentMembers", fields: [departmentId], references: [id])
+  departmentId  Int?
+  designation   Designation? @relation(fields: [designationId], references: [id])
+  designationId Int?
+  managedDepartment Department? @relation("DepartmentManager")
+  dateJoined    DateTime?
+  isActive      Boolean      @default(true)
+  basicSalary   Decimal      @default(0)
+  // Profile fields
+  phone         String?
+  dateOfBirth   DateTime?
+  address       String?
+  nationalId    String?      @unique
+  emergencyContact String?
+  bloodGroup    String?
+  avatar        String?
+  // Relations
+  attendance    Attendance[]
+  leaves        Leave[]
+  payrolls      Payroll[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Attendance {
+  id        Int              @id @default(autoincrement())
+  user      User             @relation(fields: [userId], references: [id])
+  userId    Int
+  date      DateTime
+  checkIn   DateTime?
+  checkOut  DateTime?
+  status    AttendanceStatus @default(present)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([userId, date])
+}
+
+model Leave {
+  id         Int         @id @default(autoincrement())
+  user       User        @relation(fields: [userId], references: [id])
+  userId     Int
+  leaveType  LeaveType
+  startDate  DateTime
+  endDate    DateTime
+  reason     String?
+  status     LeaveStatus @default(pending)
+  appliedAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model Payroll {
+  id           Int      @id @default(autoincrement())
+  user         User     @relation(fields: [userId], references: [id])
+  userId       Int
+  month        Int
+  year         Int
+  basicSalary  Decimal
+  allowances   Decimal  @default(0)
+  deductions   Decimal  @default(0)
+  bonus        Decimal  @default(0)
+  overtime     Decimal  @default(0)
+  netSalary    Decimal
+  notes        String?
+  generatedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, month, year])
+}
+
+enum Role {
+  admin
+  employee
+}
+
+enum AttendanceStatus {
+  present
+  absent
+  leave
+  half_day
+}
+
+enum LeaveStatus {
+  pending
+  approved
+  rejected
+}
+
+enum LeaveType {
+  annual
+  sick
+  emergency
+  unpaid
+} 
