@@ -1,0 +1,13 @@
+# Node.js
+node_modules/
+.env
+*.log
+
+# Next.js
+.next/
+out/
+dist/
+
+# OS junk files
+.DS_Store
+Thumbs.db
